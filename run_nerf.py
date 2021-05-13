@@ -513,6 +513,8 @@ def config_parser():
                         help='sampling linearly in disparity rather than depth')
     parser.add_argument("--spherify", action='store_true', 
                         help='set for spherical 360 scenes')
+    parser.add_argument("--circle", action='store_true',
+                        help='renders circular path')
     parser.add_argument("--llffhold", type=int, default=8, 
                         help='will take every 1/N images as LLFF test set, paper uses 8')
 
@@ -541,7 +543,7 @@ def train():
     if args.dataset_type == 'llff':
         images, poses, bds, render_poses, i_test = load_llff_data(args.datadir, args.factor,
                                                                   recenter=True, bd_factor=.75,
-                                                                  spherify=args.spherify)
+                                                                  spherify=args.spherify, circle=args.circle)
         hwf = poses[0,:3,-1]
         poses = poses[:,:3,:4]
         print('Loaded llff', images.shape, render_poses.shape, hwf, args.datadir)

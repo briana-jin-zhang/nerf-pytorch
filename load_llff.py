@@ -1,6 +1,6 @@
 import numpy as np
 import os, imageio
-
+import torch
 
 ########## Slightly modified version of LLFF data loading code 
 ##########  see https://github.com/Fyusion/LLFF for original
@@ -118,9 +118,6 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     return poses, bds, imgs
 
     
-            
-            
-    
 
 def normalize(x):
     return x / np.linalg.norm(x)
@@ -160,7 +157,38 @@ def render_path_spiral(c2w, up, rads, focal, zdelta, zrate, rots, N):
         z = normalize(c - np.dot(c2w[:3,:4], np.array([0,0,-focal, 1.])))
         render_poses.append(np.concatenate([viewmatrix(z, up, c), hwf], 1))
     return render_poses
-    
+
+
+trans_t = lambda t : torch.Tensor([
+    [1,0,0,0],
+    [0,1,0,0],
+    [0,0,1,t],
+    [0,0,0,1]]).float()
+
+rot_phi = lambda phi : torch.Tensor([
+    [1,0,0,0],
+    [0,np.cos(phi),-np.sin(phi),0],
+    [0,np.sin(phi), np.cos(phi),0],
+    [0,0,0,1]]).float()
+
+rot_theta = lambda th : torch.Tensor([
+    [np.cos(th),0,-np.sin(th),0],
+    [0,1,0,0],
+    [np.sin(th),0, np.cos(th),0],
+    [0,0,0,1]]).float()
+
+def pose_spherical(theta, phi, radius):
+    c2w = trans_t(radius)
+    c2w = rot_phi(phi/180.*np.pi) @ c2w
+    c2w = rot_theta(theta/180.*np.pi) @ c2w
+    c2w = torch.Tensor(np.array([[-1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
+    return c2w
+
+def render_path_circle(poses):
+    #TODO calculate radius and phi 
+    # radius = 
+    # phi = 
+    render_poses = torch.stack([pose_spherical(angle, phi=-30.0, radius=4.0) for angle in np.linspace(-180,180,40+1)[:-1]], 0)
 
 
 def recenter_poses(poses):
@@ -240,7 +268,7 @@ def spherify_poses(poses, bds):
     return poses_reset, new_poses, bds
     
 
-def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=False, path_zflat=False):
+def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=False, circle=False, path_zflat=False):
     
 
     poses, bds, imgs = _load_data(basedir, factor=factor) # factor=8 downsamples original imgs by 8x
@@ -263,6 +291,9 @@ def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=Fal
         
     if spherify:
         poses, render_poses, bds = spherify_poses(poses, bds)
+
+    elif circle:
+        render_poses = render_path_circle(poses)
 
     else:
         
